@@ -17,23 +17,38 @@ const panelClose = panel.querySelector('.panel-close');
 const acked = new Set();
 const pending = new Set();
 const known = new Map(); // incident id -> latest incident we saw
+const rowEls = new Map(); // incident id -> its <li>. Rows are kept and updated in place, never rebuilt.
 let selectedId = null; // the panel follows this id, never a row position
 
 const fmt = new Intl.DateTimeFormat(undefined, {
   year: 'numeric', month: '2-digit', day: '2-digit',
   hour: '2-digit', minute: '2-digit', second: '2-digit',
 });
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const localTime = (iso) => { const d = new Date(iso); return isNaN(d) ? iso : fmt.format(d); };
 
-function rowHtml(i) {
-  return `<li data-testid="incident-row" data-id="${esc(i.id)}" class="row ${esc(i.severity)}${i.id === selectedId ? ' selected' : ''}" tabindex="0" role="button" aria-label="Open incident ${esc(i.id)}">
-    <span class="id">${esc(i.id)}</span>
-    <span class="sev">${esc(i.severity)}</span>
-    <span class="what">${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>
-    <time datetime="${esc(i.openedAt)}">${esc(localTime(i.openedAt))}</time>
-    ${acked.has(i.id) ? '<span data-testid="acked" class="acked">✓ acked</span>' : '<span></span>'}
-  </li>`;
+function makeRow(id) {
+  const li = document.createElement('li');
+  li.setAttribute('data-testid', 'incident-row');
+  li.dataset.id = id;
+  li.tabIndex = 0;
+  li.setAttribute('role', 'button');
+  li.setAttribute('aria-label', `Open incident ${id}`);
+  li.innerHTML = '<span class="id"></span><span class="sev"></span><span class="what"></span><time></time><span class="mark"></span>';
+  li.querySelector('.id').textContent = id;
+  return li;
+}
+
+function updateRow(li, i) {
+  li.className = `row ${String(i.severity).replace(/[^\w-]/g, '')}${i.id === selectedId ? ' selected' : ''}`;
+  li.querySelector('.sev').textContent = i.severity;
+  li.querySelector('.what').textContent = `${i.service} · ${i.region} · ${i.summary}`;
+  const t = li.querySelector('time');
+  t.setAttribute('datetime', i.openedAt);
+  t.textContent = localTime(i.openedAt);
+  const mark = li.querySelector('.mark');
+  if (acked.has(i.id) && !mark.firstElementChild) {
+    mark.innerHTML = '<span data-testid="acked" class="acked">✓ acked</span>';
+  }
 }
 
 function renderPanel() {
@@ -54,7 +69,6 @@ function renderPanel() {
 }
 
 let lastIncidents = [];
-let lastKey = '';
 // Newest first by openedAt; equal times fall back to the incident id, so the order never depends on the API's.
 const newestFirst = (a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || b.id.localeCompare(a.id);
 function render(unsorted) {
@@ -62,11 +76,20 @@ function render(unsorted) {
   lastIncidents = incidents;
   for (const i of incidents) known.set(i.id, i);
   renderPanel();
-  const key = JSON.stringify([incidents.map((i) => [i.id, i.openedAt, i.summary, i.severity]), [...acked], selectedId]);
   empty.hidden = incidents.length > 0;
-  if (key === lastKey) return;
-  lastKey = key;
-  list.innerHTML = incidents.map(rowHtml).join('');
+  // Rows leave the board only when the feed drops them. A new incident adds one row; the others stay put.
+  const keep = new Set(incidents.map((i) => i.id));
+  for (const [id, li] of rowEls) {
+    if (!keep.has(id)) { li.remove(); rowEls.delete(id); }
+  }
+  let ref = list.firstElementChild;
+  for (const i of incidents) {
+    let li = rowEls.get(i.id);
+    if (!li) { li = makeRow(i.id); rowEls.set(i.id, li); }
+    updateRow(li, i);
+    if (li === ref) ref = ref.nextElementSibling;
+    else list.insertBefore(li, ref);
+  }
 }
 
 // A row opens its incident panel. The panel holds the incident id, so rows moving does not change what it acks.
