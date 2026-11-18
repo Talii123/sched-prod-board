@@ -12,5 +12,15 @@ footer { color: #777; font-size: 13px; }
 .loader, .empty { padding: 12px; color: #666; }
 .error { padding: 8px 12px; color: #b00020; background: #fdecee; max-width: 960px; }
 [hidden] { display: none !important; }
-.row button { min-height: 32px; padding: 0 14px; cursor: pointer; }
+.row { cursor: pointer; }
+.row.selected { outline: 2px solid #0b5fff; outline-offset: -2px; }
+.layout { display: grid; grid-template-columns: minmax(0, 960px) 320px; gap: 24px; align-items: start; }
+.panel { position: sticky; top: 12px; padding: 16px; background: #fff; border: 1px solid #d5d5d5; border-radius: 6px; }
+.panel h2 { margin: 0 24px 4px 0; font: 600 18px ui-monospace, monospace; }
+.panel p { margin: 4px 0; }
+.panel-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; background: none; font-size: 20px; cursor: pointer; }
+.panel-ack { margin-top: 12px; min-height: 40px; padding: 0 24px; font-size: 15px; cursor: pointer; }
+.panel-ack:disabled { cursor: default; }
+.panel-state { color: #1a7f37; font-weight: 600; min-height: 1.4em; }
+@media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } .panel { position: static; order: -1; } }
 .row .acked { color: #1a7f37; font-weight: 600; }
