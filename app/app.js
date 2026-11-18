@@ -31,7 +31,10 @@ function rowHtml(i) {
 
 let lastIncidents = [];
 let lastKey = '';
-function render(incidents) {
+// Newest first by openedAt; equal times fall back to the incident id, so the order never depends on the API's.
+const newestFirst = (a, b) => Date.parse(b.openedAt) - Date.parse(a.openedAt) || b.id.localeCompare(a.id);
+function render(unsorted) {
+  const incidents = [...unsorted].sort(newestFirst);
   lastIncidents = incidents;
   const key = JSON.stringify([incidents.map((i) => [i.id, i.openedAt, i.summary, i.severity]), [...acked], [...pending]]);
   empty.hidden = incidents.length > 0;
